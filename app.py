@@ -21,7 +21,7 @@ uploaded_file = st.file_uploader("Upload a PDF or TXT file", type=["pdf", "txt"]
 if uploaded_file is not None:
     text = ""
 
-    # ---------- PDF Handling ----------
+    # PDF Handling
     if uploaded_file.type == "application/pdf":
         with pdfplumber.open(uploaded_file) as pdf:
             for page in pdf.pages:
@@ -31,9 +31,7 @@ if uploaded_file is not None:
         if not text.strip():
             st.error("No readable text found in the PDF. Make sure it’s text-based (not scanned).")
             st.stop()
-
-    # ---------- TXT Handling ----------
-    else:
+    else:  # TXT Handling
         text = uploaded_file.read().decode("utf-8")
         if not text.strip():
             st.error("The uploaded TXT file is empty.")
@@ -41,9 +39,7 @@ if uploaded_file is not None:
 
     st.success("Document uploaded successfully!")
 
-    # ------------------------------
     # Split text into chunks
-    # ------------------------------
     splitter = CharacterTextSplitter(chunk_size=800, chunk_overlap=100)
     chunks = splitter.split_text(text)
     doc_objects = [Document(page_content=chunk) for chunk in chunks]
@@ -52,49 +48,38 @@ if uploaded_file is not None:
         st.error("No text found to process.")
         st.stop()
 
-    # ------------------------------
     # Generate embeddings and FAISS vector store
-    # ------------------------------
     with st.spinner("Creating embeddings..."):
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         vectorstore = FAISS.from_documents(doc_objects, embeddings)
 
-    # ------------------------------
-    # Initialize local HuggingFace QA model (CPU)
-    # ------------------------------
+    # Initialize local HuggingFace QA model
     qa_pipeline = pipeline(
         "question-answering",
         model="distilbert-base-uncased-distilled-squad",
-        device=-1  # CPU only
+        device=-1  # CPU
     )
 
-    # ------------------------------
     # Ask questions
-    # ------------------------------
     query = st.text_input("Ask a question about your document:")
 
     if query:
         with st.spinner("Searching for answer..."):
             try:
-                # Retrieve top 3 relevant chunks from FAISS
+                # Retrieve top 3 relevant chunks
                 docs_with_scores = vectorstore.similarity_search(query, k=3)
 
-                # Run QA only on these top chunks
+                # Run QA on these chunks
                 answers = []
                 for doc in docs_with_scores:
                     result = qa_pipeline(question=query, context=doc.page_content)
                     if result['answer'].strip():
                         answers.append(result['answer'].strip())
 
-                # Combine answers
-                if not answers:
-                    final_answer = "No relevant information found in the document."
-                else:
-                    final_answer = " ".join(answers)
-
+                final_answer = "No relevant information found in the document." if not answers else " ".join(answers)
                 st.markdown(f"**Answer:** {final_answer}")
 
-                # Optional: show snippet sources
+                # Show snippet sources
                 with st.expander("Show relevant snippets"):
                     for i, doc in enumerate(docs_with_scores):
                         snippet = doc.page_content[:300].replace("\n", " ")
