@@ -9,8 +9,8 @@ import numpy as np
 # ------------------------------
 # Streamlit UI
 # ------------------------------
-st.set_page_config(page_title="Offline PDF/TXT QA", layout="wide")
-st.title("📄 Offline PDF/TXT QA (Point-wise Answers, No Transformers)")
+st.set_page_config(page_title="Online PDF/TXT QA", layout="wide")
+st.title("📄 Online PDF/TXT Answering QA (Point-wise Answers, No Transformers)")
 st.write("Upload a PDF or TXT file and ask questions. Outputs **point-wise answers** without using torch/transformers.")
 
 # ------------------------------
@@ -95,3 +95,4 @@ if uploaded_file is not None:
                 for i in top_idx[:3]:
                     snippet = chunks[i].replace("\n", " ")
                     st.markdown(f"**Snippet {i+1}:** {snippet[:800]}...")
+
