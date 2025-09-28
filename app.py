@@ -1,5 +1,6 @@
 import streamlit as st
 import pdfplumber
+import re
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.docstore.document import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -9,8 +10,8 @@ from langchain_community.vectorstores import FAISS
 # Streamlit UI setup
 # ------------------------------
 st.set_page_config(page_title="Offline PDF QA", layout="wide")
-st.title("📄 Offline PDF/TXT QA (No Transformers)")
-st.write("Upload a PDF or TXT file and ask questions about its content. Runs **without API keys & without transformers**.")
+st.title("📄 Offline PDF/TXT QA (Point-wise Answers, No Transformers)")
+st.write("Upload a PDF or TXT file and ask questions. Outputs **clean, point-wise answers** without metadata.")
 
 # ------------------------------
 # File Upload
@@ -66,18 +67,32 @@ if uploaded_file is not None:
                 if not docs_with_scores:
                     final_answer = "❌ No relevant information found in the document."
                 else:
-                    # Combine retrieved chunks (clean formatting)
                     answers = []
-                    for i, doc in enumerate(docs_with_scores):
-                        snippet = doc.page_content.strip().replace("\n", " ")
-                        answers.append(f"- {snippet[:250]}...")  # short preview
+
+                    for doc in docs_with_scores:
+                        snippet = doc.page_content.strip()
+
+                        # Remove author/title lines (anything before "Chapter" or "Learning Objectives")
+                        snippet = re.sub(r"^.*?(Chapter|Learning Objectives)", r"\1", snippet, flags=re.DOTALL)
+
+                        # Extract bullet/numbered points
+                        points = re.findall(r"(?:\d+\.|\-)\s.*?(?=(?:\d+\.|\-|$))", snippet, flags=re.DOTALL)
+
+                        if points:
+                            for p in points:
+                                clean_p = p.strip().replace("\n", " ")
+                                answers.append(f"- {clean_p}")
+                        else:
+                            # fallback: just add clean text
+                            clean_snip = snippet.replace("\n", " ")
+                            answers.append(f"- {clean_snip[:250]}...")
 
                     final_answer = "\n".join(answers)
 
-                st.markdown("### 📌 Answer (Best Matches)")
+                st.markdown("### 📌 Answer (Point-wise)")
                 st.write(final_answer)
 
-                # Show full snippets separately
+                # Show full retrieved snippets in expander
                 with st.expander("🔍 Full relevant snippets"):
                     for i, doc in enumerate(docs_with_scores):
                         snippet = doc.page_content[:800].replace("\n", " ")
