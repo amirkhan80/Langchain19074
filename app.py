@@ -79,11 +79,11 @@ if uploaded_file is not None:
                         points = re.findall(r"(?:\d+\.|\-)\s.*?(?=(?:\d+\.|\-|$))", snippet, flags=re.DOTALL)
 
                         if points:
-                            for p in points:
+                            for p in points[:10]:  # ✅ limit to top 10 points
                                 clean_p = p.strip().replace("\n", " ")
                                 answers.append(f"- {clean_p}")
                         else:
-                            # fallback: just add clean text
+                            # fallback: just add clean text snippet (first 250 chars)
                             clean_snip = snippet.replace("\n", " ")
                             answers.append(f"- {clean_snip[:250]}...")
 
