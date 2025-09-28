@@ -4,6 +4,7 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain.text_splitter import CharacterTextSplitter
+import numpy as np
 
 # ------------------------------
 # Streamlit UI
@@ -47,7 +48,7 @@ if uploaded_file is not None:
         st.stop()
 
     # ------------------------------
-    # Build TF-IDF vectorizer
+    # Build TF-IDF vectorizer for chunks
     # ------------------------------
     vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(chunks)
@@ -60,28 +61,37 @@ if uploaded_file is not None:
     if query:
         query_vec = vectorizer.transform([query])
         similarities = cosine_similarity(query_vec, tfidf_matrix).flatten()
-        top_idx = similarities.argsort()[-3:][::-1]  # top 3 chunks
 
-        answers = []
-        for idx in top_idx:
-            snippet = chunks[idx].strip()
-            snippet = re.sub(r"^.*?(Chapter|Learning Objectives)", r"\1", snippet, flags=re.DOTALL)
-            points = re.findall(r"(?:\d+\.|\-)\s.*?(?=(?:\d+\.|\-|$))", snippet, flags=re.DOTALL)
-            if points:
-                for p in points[:10]:
-                    clean_p = p.strip().replace("\n", " ")
-                    answers.append(f"- {clean_p}")
-            else:
-                clean_snip = snippet.replace("\n", " ")
-                answers.append(f"- {clean_snip[:250]}...")
+        # ✅ Only consider chunks with similarity above threshold
+        threshold = 0.1
+        relevant_idx = np.where(similarities > threshold)[0]
 
-        final_answer = "\n".join(answers)
+        if len(relevant_idx) == 0:
+            st.warning("❌ No relevant information found in the document for this question.")
+        else:
+            # Sort relevant chunks by similarity
+            top_idx = relevant_idx[np.argsort(similarities[relevant_idx])[::-1]]
 
-        st.markdown("### 📌 Answer (Point-wise)")
-        st.write(final_answer)
+            answers = []
+            for idx in top_idx[:3]:  # top 3 relevant chunks
+                snippet = chunks[idx].strip()
+                snippet = re.sub(r"^.*?(Chapter|Learning Objectives)", r"\1", snippet, flags=re.DOTALL)
+                points = re.findall(r"(?:\d+\.|\-)\s.*?(?=(?:\d+\.|\-|$))", snippet, flags=re.DOTALL)
+                if points:
+                    for p in points[:10]:
+                        clean_p = p.strip().replace("\n", " ")
+                        answers.append(f"- {clean_p}")
+                else:
+                    clean_snip = snippet.replace("\n", " ")
+                    answers.append(f"- {clean_snip[:250]}...")
 
-        # Show full snippets
-        with st.expander("🔍 Full relevant snippets"):
-            for i in top_idx:
-                snippet = chunks[i].replace("\n", " ")
-                st.markdown(f"**Snippet {i+1}:** {snippet[:800]}...")
+            final_answer = "\n".join(answers)
+
+            st.markdown("### 📌 Answer (Point-wise)")
+            st.write(final_answer)
+
+            # Show full snippets
+            with st.expander("🔍 Full relevant snippets"):
+                for i in top_idx[:3]:
+                    snippet = chunks[i].replace("\n", " ")
+                    st.markdown(f"**Snippet {i+1}:** {snippet[:800]}...")
