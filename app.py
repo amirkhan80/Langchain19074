@@ -4,14 +4,13 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.docstore.document import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from transformers import pipeline
 
 # ------------------------------
 # Streamlit UI setup
 # ------------------------------
-st.set_page_config(page_title="Offline Transformer QA", layout="wide")
-st.title("📄 Offline Transformer QA")
-st.write("Upload a PDF or TXT file and ask questions about its content. No API key needed!")
+st.set_page_config(page_title="Offline PDF QA", layout="wide")
+st.title("📄 Offline PDF/TXT QA (No Transformers)")
+st.write("Upload a PDF or TXT file and ask questions about its content. Runs **without API keys & without transformers**.")
 
 # ------------------------------
 # File Upload
@@ -53,14 +52,9 @@ if uploaded_file is not None:
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         vectorstore = FAISS.from_documents(doc_objects, embeddings)
 
-    # Initialize local HuggingFace QA model
-    qa_pipeline = pipeline(
-        "question-answering",
-        model="distilbert-base-uncased-distilled-squad",
-        device=-1  # CPU
-    )
-
+    # ------------------------------
     # Ask questions
+    # ------------------------------
     query = st.text_input("Ask a question about your document:")
 
     if query:
@@ -69,23 +63,19 @@ if uploaded_file is not None:
                 # Retrieve top 3 relevant chunks
                 docs_with_scores = vectorstore.similarity_search(query, k=3)
 
-                # Run QA on these chunks
-                answers = []
-                for doc in docs_with_scores:
-                    result = qa_pipeline(question=query, context=doc.page_content)
-                    if result["answer"].strip():
-                        answers.append(result["answer"].strip())
+                if not docs_with_scores:
+                    final_answer = "No relevant information found in the document."
+                else:
+                    # Just join best snippets as the answer
+                    answers = [doc.page_content.strip()[:300] for doc in docs_with_scores]
+                    final_answer = " ".join(answers)
 
-                final_answer = (
-                    "No relevant information found in the document."
-                    if not answers else " ".join(answers)
-                )
                 st.markdown(f"**Answer:** {final_answer}")
 
                 # Show snippet sources
                 with st.expander("Show relevant snippets"):
                     for i, doc in enumerate(docs_with_scores):
-                        snippet = doc.page_content[:300].replace("\n", " ")
+                        snippet = doc.page_content[:400].replace("\n", " ")
                         st.markdown(f"**Snippet {i+1}:** {snippet}...")
 
             except Exception as e:
