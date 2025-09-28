@@ -26,7 +26,7 @@ if uploaded_file is not None:
             for page in pdf.pages:
                 page_text = page.extract_text()
                 if page_text:
-                    text += page_text
+                    text += page_text + "\n"
         if not text.strip():
             st.error("No readable text found in the PDF. Make sure it’s text-based (not scanned).")
             st.stop()
@@ -64,19 +64,24 @@ if uploaded_file is not None:
                 docs_with_scores = vectorstore.similarity_search(query, k=3)
 
                 if not docs_with_scores:
-                    final_answer = "No relevant information found in the document."
+                    final_answer = "❌ No relevant information found in the document."
                 else:
-                    # Just join best snippets as the answer
-                    answers = [doc.page_content.strip()[:300] for doc in docs_with_scores]
-                    final_answer = " ".join(answers)
-
-                st.markdown(f"**Answer:** {final_answer}")
-
-                # Show snippet sources
-                with st.expander("Show relevant snippets"):
+                    # Combine retrieved chunks (clean formatting)
+                    answers = []
                     for i, doc in enumerate(docs_with_scores):
-                        snippet = doc.page_content[:400].replace("\n", " ")
+                        snippet = doc.page_content.strip().replace("\n", " ")
+                        answers.append(f"- {snippet[:250]}...")  # short preview
+
+                    final_answer = "\n".join(answers)
+
+                st.markdown("### 📌 Answer (Best Matches)")
+                st.write(final_answer)
+
+                # Show full snippets separately
+                with st.expander("🔍 Full relevant snippets"):
+                    for i, doc in enumerate(docs_with_scores):
+                        snippet = doc.page_content[:800].replace("\n", " ")
                         st.markdown(f"**Snippet {i+1}:** {snippet}...")
 
             except Exception as e:
-                st.error(f"Error generating answer: {e}")
+                st.error(f"⚠️ Error generating answer: {e}")
