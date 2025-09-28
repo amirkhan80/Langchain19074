@@ -37,7 +37,7 @@ if uploaded_file is not None:
             st.error("The uploaded TXT file is empty.")
             st.stop()
 
-    st.success("Document uploaded successfully!")
+    st.success("✅ Document uploaded successfully!")
 
     # Split text into chunks
     splitter = CharacterTextSplitter(chunk_size=800, chunk_overlap=100)
@@ -49,7 +49,7 @@ if uploaded_file is not None:
         st.stop()
 
     # Generate embeddings and FAISS vector store
-    with st.spinner("Creating embeddings..."):
+    with st.spinner("Creating embeddings... (this may take ~30s first time)"):
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         vectorstore = FAISS.from_documents(doc_objects, embeddings)
 
@@ -73,10 +73,13 @@ if uploaded_file is not None:
                 answers = []
                 for doc in docs_with_scores:
                     result = qa_pipeline(question=query, context=doc.page_content)
-                    if result['answer'].strip():
-                        answers.append(result['answer'].strip())
+                    if result["answer"].strip():
+                        answers.append(result["answer"].strip())
 
-                final_answer = "No relevant information found in the document." if not answers else " ".join(answers)
+                final_answer = (
+                    "No relevant information found in the document."
+                    if not answers else " ".join(answers)
+                )
                 st.markdown(f"**Answer:** {final_answer}")
 
                 # Show snippet sources
